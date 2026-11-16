@@ -1,12 +1,25 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, mkdirSync, openSync, writeSync, closeSync } from 'node:fs';
+import { join } from 'node:path';
 import { parse } from './parse.js';
-const source = process.env.MAKEFUN_INPUT_DIR || '/input';
-const destination = process.env.MAKEFUN_OUTPUT_DIR || '/output';
-const documents = JSON.parse(readFileSync(`${source}/cases.json`, 'utf8'));
-const encoded: string[] = new Array(documents.length);
-for (let index = 0; index < documents.length; index++) {
-  encoded[index] = JSON.stringify(parse(documents[index].markdown));
-  documents[index] = null;
+
+// Environment overrides are paths for local harness runs, never rendering options.
+const sourceDirectory = process.env.MAKEFUN_INPUT_DIR || '/input';
+const destinationDirectory = process.env.MAKEFUN_OUTPUT_DIR || '/output';
+const documents = JSON.parse(readFileSync(join(sourceDirectory, 'cases.json'), 'utf8'));
+mkdirSync(destinationDirectory, { recursive: true });
+const output = openSync(join(destinationDirectory, 'html.json'), 'w');
+function emit(value) {
+  const bytes = Buffer.from(value);
+  let offset = 0;
+  while (offset < bytes.length) offset += writeSync(output, bytes, offset, bytes.length - offset);
 }
-mkdirSync(destination, { recursive: true });
-writeFileSync(`${destination}/html.json`, '[' + encoded.join(',') + ']');
+try {
+  emit('[');
+  for (let index = 0; index < documents.length; ++index) {
+    if (index) emit(',');
+    emit(JSON.stringify(parse(documents[index].markdown)));
+  }
+  emit(']');
+} finally {
+  closeSync(output);
+}
