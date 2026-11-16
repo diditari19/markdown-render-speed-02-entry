@@ -105,11 +105,11 @@ function emphasisEnd(text,start,count,ch,refs){
 const protectEscapesAndCode = /(`+)(?:[^`]|[^`][\s\S]*?[^`])\1(?!`)|`+|\\([\p{P}\p{S}])/gu;
 const simpleCode = /^(`+)[^`]+\1(?!`)/;
 function maskInline(text,refs){
- let source=text.replace(protectEscapesAndCode,(span,ticks,escaped)=>escaped?'+'.repeat(span.length):ticks?ticks+span.slice(ticks.length,-ticks.length).replace(/`/g,'+')+ticks:span);
+ let source=(!text.includes('`')&&!text.includes('\\'))?text:text.replace(protectEscapesAndCode,(span,ticks,escaped)=>escaped?'+'.repeat(span.length):ticks?ticks+span.slice(ticks.length,-ticks.length).replace(/`/g,'+')+ticks:span);
  // Reference masks precede code masks, and protect only resolved references.
- source=source.replace(/!?\[((?:\\.|[^\[\]])+)\](?:\[([^\[\]]*)\])?/g,(span,label,reference)=>refs.has(key(reference||label))?'['+'a'.repeat(span.length-2)+']':span);
- const spans=[];
- for(let i=0;i<source.length;i++){
+ if(refs.size&&source.includes('['))source=source.replace(/!?\[((?:\\.|[^\[\]])+)\](?:\[([^\[\]]*)\])?/g,(span,label,reference)=>refs.has(key(reference||label))?'['+'a'.repeat(span.length-2)+']':span);
+ const spans=[];const triggers=/[\[`<]/g;
+ for(let i=0;i<source.length;i++){triggers.lastIndex=i;const trigger=triggers.exec(source);if(!trigger)break;i=trigger.index;
  if(source[i]==='['){let j=i+1,validLabel=true;for(;j<source.length;j++){if(source[j]==='\\'){j++;continue;}if(source[j]==='['){validLabel=false;break;}if(source[j]==='`'){let n=1;while(source[j+n]==='`')n++;let end=source.indexOf('`',j+n);if(end<0){validLabel=false;break;}let m=1;while(source[end+m]==='`')m++;if(m!==n){validLabel=false;break;}j=end+m-1;continue;}if(source[j]===']')break;}
  if(validLabel&&source[j]===']'&&source[j+1]==='('){let k=j+2,n=1;for(;k<source.length;k++){if(source[k]==='\\'){k++;continue;}if(source[k]==='(')n++;if(source[k]===')'&&!--n)break;}if(!n){spans.push([i,k+1]);i=k;continue;}}}
  if(source[i]==='`'&&source[i-1]!=='`'){const match=simpleCode.exec(source.slice(i));if(match){spans.push([i,i+match[0].length]);i+=match[0].length-1;continue;}}
